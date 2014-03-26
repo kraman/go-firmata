@@ -14,6 +14,7 @@
   Copyright (C) 2010-2011 Paul Stoffregen.  All rights reserved.
   Copyright (C) 2009 Shigeru Kobayashi.  All rights reserved.
   Copyright (C) 2009-2011 Jeff Hoefs.  All rights reserved.
+  Copyright (C) 2014 Krishna Raman.  All rights reserved.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -32,6 +33,7 @@
 #include <Servo.h>
 #include <Wire.h>
 #include <Firmata.h>
+#include <SoftwareSerial.h>
 
 // move the following defines to Firmata.h?
 #define I2C_WRITE B00000000
@@ -40,6 +42,18 @@
 #define I2C_STOP_READING B00011000
 #define I2C_READ_WRITE_MODE_MASK B00011000
 #define I2C_10BIT_ADDRESS_MODE_MASK B00100000
+
+#define SYSEX_SERIAL 0x60
+
+#define SERIAL_CONFIG 0x10
+#define SERIAL_COMM 0x20
+#define SERIAL_FLUSH 0x30
+#define SERIAL_CLOSE 0x40
+
+#define SW_SERIAL 0x00
+#define HW_SERIAL1 0x01
+#define HW_SERIAL2 0x02
+#define HW_SERIAL3 0x03
 
 #define MAX_QUERIES 8
 #define MINIMUM_SAMPLING_INTERVAL 10
@@ -85,9 +99,21 @@ unsigned int i2cReadDelayTime =
     0; // default delay time between i2c read request and Wire.requestFrom()
 
 Servo servos[MAX_SERVOS];
+
+Stream *serialPort = NULL;
+byte *serialReadBuffer = NULL;
+int serialReadBufferPos = 0;
+byte serialReadTermChar = '\n';
+int serialReadBufferLen = 0;
+
 /*==============================================================================
  * FUNCTIONS
  *============================================================================*/
+
+void setPinModeCallback(byte pin, int mode);
+void reportAnalogCallback(byte analogPin, int value);
+void disableI2CPins();
+void enableI2CPins();
 
 void readAndReportData(byte address, int theRegister, byte numBytes) {
   // allow I2C requests that don't require a register read
@@ -516,6 +542,71 @@ void sysexCallback(byte command, byte argc, byte *argv) {
       Serial.write(END_SYSEX);
     }
     break;
+  case SYSEX_SERIAL: {
+    byte subCommand = argv[0] & 0xF0;
+    byte port = argv[0] & 0x0F;
+
+    switch (subCommand) {
+    case SERIAL_CONFIG: {
+      if (serialPort != NULL) {
+        Firmata.sendString(
+            "Close existing serial connection before opening new one");
+        break;
+      }
+      long baud =
+          ((long)argv[1]) | (((long)argv[2]) << 7) | (((long)argv[3]) << 14);
+      serialReadBufferLen = (int)(argv[4] | argv[5] << 7 | argv[6] << 14);
+      serialReadBuffer = (byte *)calloc(sizeof(byte), serialReadBufferLen);
+      serialReadTermChar = (byte)(argv[7] | argv[8] << 7);
+      serialReadBufferPos = 0;
+
+      // byte txPin = argv[4];
+      // byte rxPin = argv[5];
+      switch (port) {
+      case HW_SERIAL1:
+        Serial1.begin(baud);
+        serialPort = &Serial1;
+        break;
+      case HW_SERIAL2:
+        Serial2.begin(baud);
+        serialPort = &Serial2;
+        break;
+      case HW_SERIAL3:
+        Serial3.begin(baud);
+        serialPort = &Serial3;
+        break;
+      }
+      break;
+    }
+    case SERIAL_COMM: {
+      if (serialPort == NULL) {
+        break;
+      }
+      byte data;
+      // reassemble data bytes and forward to sw serial write buffer
+      for (int i = 1; i < argc; i += 2) {
+        data = argv[i] + (argv[i + 1] << 7);
+        serialPort->write(data);
+      }
+      break;
+    }
+    case SERIAL_FLUSH:
+      if (serialPort == NULL) {
+        break;
+      }
+      serialPort->flush();
+      break;
+    case SERIAL_CLOSE:
+      if (serialPort == NULL) {
+        break;
+      }
+      ((HardwareSerial *)serialPort)->end();
+      serialPort = NULL;
+      free(serialReadBuffer);
+      break;
+    }
+    break;
+  }
   case ANALOG_MAPPING_QUERY:
     Serial.write(START_SYSEX);
     Serial.write(ANALOG_MAPPING_RESPONSE);
@@ -623,6 +714,25 @@ void loop() {
    * checking digital inputs.  */
   while (Firmata.available())
     Firmata.processInput();
+
+  if (serialPort != NULL) {
+    while (serialPort->available() > 0) {
+      byte inChar = serialPort->read();
+      serialReadBuffer[serialReadBufferPos++] = inChar;
+      if (inChar == serialReadTermChar ||
+          (serialReadBufferPos + 2) >= serialReadBufferLen) {
+        Serial.write(START_SYSEX);
+        Serial.write(SYSEX_SERIAL);
+        Serial.write(SERIAL_COMM);
+        for (int i = 0; i < serialReadBufferPos; i++) {
+          Serial.write((byte)(serialReadBuffer[i] & 0x7F));
+          Serial.write((byte)((serialReadBuffer[i] >> 7) & 0x7F));
+        }
+        Serial.write(END_SYSEX);
+        serialReadBufferPos = 0;
+      }
+    }
+  }
 
   /* SEND FTDI WRITE BUFFER - make sure that the FTDI buffer doesn't go over
    * 60 bytes. use a timer to sending an event character every 4 ms to
