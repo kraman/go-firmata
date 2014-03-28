@@ -1,3 +1,17 @@
+// Copyright 2014 Krishna Raman
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package firmata
 
 import (
@@ -48,11 +62,20 @@ const (
 	SysExNonRealtime      SysExCommand = 0x7E // MIDI Reserved for non-realtime messages
 	SysExRealtime         SysExCommand = 0x7F // MIDI Reserved for realtime messages
 	Serial                SysExCommand = 0x60
+	SysExSPI              SysExCommand = 0x80
 
 	SerialConfig SerialSubCommand = 0x10
 	SerialComm   SerialSubCommand = 0x20
 	SerialFlush  SerialSubCommand = 0x30
 	SerialClose  SerialSubCommand = 0x40
+
+	SPIConfig SPISubCommand = 0x10
+	SPIComm   SPISubCommand = 0x20
+	
+	SPI_MODE0 = 0x00
+	SPI_MODE1 = 0x04
+	SPI_MODE2 = 0x08
+	SPI_MODE3 = 0x0C
 
 	SoftSerial  SerialPort = 0x00
 	HardSerial1 SerialPort = 0x01
@@ -67,6 +90,7 @@ const (
 	Servo  PinMode = 0x04
 	Shift  PinMode = 0x05
 	I2C    PinMode = 0x06
+	SPI    PinMode = 0x07
 )
 
 func (m PinMode) String() string {
@@ -151,6 +175,8 @@ func (c SysExCommand) String() string {
 		return fmt.Sprintf("SysExRealtime (0x%x)", byte(c))
 	case c == Serial:
 		return fmt.Sprintf("Serial (0x%x)", byte(c))
+	case c == SysExSPI:
+		return fmt.Sprintf("SPI (0x%x)", byte(c))
 	}
 	return fmt.Sprintf("Unexpected SysEx command (0x%x)", byte(c))
 }

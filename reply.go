@@ -1,9 +1,22 @@
+// Copyright 2014 Krishna Raman
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package firmata
 
 import (
 	"bufio"
 	"fmt"
-	"log"
 )
 
 type FirmataValue struct {
@@ -48,7 +61,7 @@ func (v FirmataValue) String() string {
 		return fmt.Sprintf("Analog value %v = %v", p, v)
 	} else {
 		p, v, _ := v.GetAnalogValue()
-		return fmt.Sprintf("Digital port %v = %v", p, v)
+		return fmt.Sprintf("Digital port %v = %b", p, v)
 	}
 }
 
@@ -58,30 +71,29 @@ func (c *FirmataClient) replyReader() {
 	var init bool
 
 	for {
-		log.Println("..")
 		b, err := (r.ReadByte())
 		if err != nil {
-			log.Fatal(err)
+			c.Log.Critical(err)
 			return
 		}
-		log.Printf("..%v..", b)
 
 		cmd := FirmataCommand(b)
-		log.Printf("Processing cmd %v\n", cmd)
+    c.Log.Trace("Incoming cmd %v", cmd)
 		if !init {
 			if cmd != ReportVersion {
-				log.Printf("..ignoring (not initialized)")
+				c.Log.Debug("Discarding unexpected command byte %0d (not initialized)\n", b)
 				continue
 			} else {
 				init = true
 			}
 		}
+		
 		switch {
 		case cmd == ReportVersion:
 			c.protocolVersion = make([]byte, 2)
 			c.protocolVersion[0], err = r.ReadByte()
 			c.protocolVersion[1], err = r.ReadByte()
-			log.Printf("Protocol version: %d.%d", c.protocolVersion[0], c.protocolVersion[1])
+			c.Log.Info("Protocol version: %d.%d", c.protocolVersion[0], c.protocolVersion[1])
 		case cmd == StartSysEx:
 			var sysExData []byte
 			sysExData, err = r.ReadSlice(byte(EndSysEx))
@@ -92,13 +104,13 @@ func (c *FirmataClient) replyReader() {
 			b1, _ := r.ReadByte()
 			b2, _ := r.ReadByte()
 			select {
-			case c.valueChan <- FirmataValue{cmd, int(From7Bit(b1, b2)), c.analogChannelPinsMap}:
+			case c.valueChan <- FirmataValue{cmd, int(from7Bit(b1, b2)), c.analogChannelPinsMap}:
 			}
 		default:
-			log.Printf("Discarding unexpected command byte %0d\n", b)
+			c.Log.Debug("Discarding unexpected command byte %0d\n", b)
 		}
 		if err != nil {
-			log.Fatal(err)
+			c.Log.Critical(err)
 			return
 		}
 	}

@@ -1,3 +1,17 @@
+#Copyright 2014 Krishna Raman
+#
+#Licensed under the Apache License, Version 2.0 (the "License");
+#you may not use this file except in compliance with the License.
+#You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#Unless required by applicable law or agreed to in writing, software
+#distributed under the License is distributed on an "AS IS" BASIS,
+#WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#See the License for the specific language governing permissions and
+#limitations under the License.
+
 AVR_GCC=/Applications/Arduino.app/Contents/Resources/Java/hardware/tools/avr/bin/avr-gcc
 AVR_GPP=/Applications/Arduino.app/Contents/Resources/Java/hardware/tools/avr/bin/avr-gcc
 AVR_AR=/Applications/Arduino.app/Contents/Resources/Java/hardware/tools/avr/bin/avr-ar
@@ -14,14 +28,14 @@ HW_CPP_OBJECTS=obj/core/CDC.o obj/core/HardwareSerial.o obj/core/HID.o obj/core/
 
 INO=ExtendedFirmata
 SOURCES=obj/ExtendedFirmata.o
-LIBS=Servo Wire Firmata
+LIBS=Servo Wire Firmata SPI
 
 # Programming support using avrdude. Settings and variables.
 MCU = atmega2560
 F_CPU = 16000000
 UPLOAD_RATE = 115200
 AVRDUDE_PROGRAMMER=wiring
-AVRDUDE_PORT=/dev/tty.usbmodem5d11
+AVRDUDE_PORT=/dev/tty.usbmodem1411
 AVRDUDE_WRITE_FLASH=-U flash:w:obj/$(INO).hex:i
 AVRDUDE_FLAGS=-F -p $(MCU) -P $(AVRDUDE_PORT) -c $(AVRDUDE_PROGRAMMER) -b $(UPLOAD_RATE) -D
 
@@ -80,6 +94,7 @@ $(SOURCES): obj/%.o: %.cpp
 		-I$(ARDUINO_LIB_INCLUDE)/Servo \
 		-I$(ARDUINO_LIB_INCLUDE)/Wire \
 		-I$(ARDUINO_LIB_INCLUDE)/Firmata \
+		-I$(ARDUINO_LIB_INCLUDE)/SPI \
 		$< -o $@
 
 $(AVR_LIBC): obj/core/%.o: $(ARDUINO_HW_INCLUDE)/arduino/cores/arduino/avr-libc/%.c

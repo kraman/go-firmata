@@ -34,6 +34,7 @@
 #include <Wire.h>
 #include <Firmata.h>
 #include <SoftwareSerial.h>
+#include <SPI.h>
 
 // move the following defines to Firmata.h?
 #define I2C_WRITE B00000000
@@ -59,6 +60,15 @@
 #define MINIMUM_SAMPLING_INTERVAL 10
 
 #define REGISTER_NOT_SPECIFIED -1
+
+#define IS_PIN_SPI(p) ((p) == SS || (p) == MOSI || (p) == MISO || (p) == SCK)
+
+#define SYSEX_SPI 0x80
+#define SPI_CONFIG 0x10
+#define SPI_COMM 0x20
+
+#define PIN_SPI 0x08 // pin included in SPI setup
+#define TOTAL_PIN_MODES 8
 
 /*==============================================================================
  * GLOBAL VARIABLES
@@ -283,6 +293,12 @@ void setPinModeCallback(byte pin, int mode) {
       pinConfig[pin] = I2C;
     }
     break;
+  case PIN_SPI:
+    if (IS_PIN_SPI(pin)) {
+      // mark pin as SPI
+      // the user must call SPI_CONFIG to enable SPI for a device
+      pinConfig[pin] = PIN_SPI;
+    }
   default:
     Firmata.sendString("Unknown pin mode"); // TODO: put error msgs in EEPROM
   }
@@ -427,7 +443,7 @@ void sysexCallback(byte command, byte argc, byte *argv) {
         // determine which device to stop reading and remove it's data from
         // the array, shifiting other array data to fill the space
         for (byte i = 0; i < queryIndex + 1; i++) {
-          if (query[i].addr = slaveAddress) {
+          if (query[i].addr == slaveAddress) {
             queryIndexToSkip = i;
             break;
           }
@@ -607,6 +623,46 @@ void sysexCallback(byte command, byte argc, byte *argv) {
     }
     break;
   }
+  case SYSEX_SPI: {
+    byte subCommand = argv[0] & 0xF0;
+    switch (subCommand) {
+    case SPI_CONFIG: {
+      pinMode(MISO, INPUT);
+      pinMode(MOSI, OUTPUT);
+      pinMode(SCK, OUTPUT);
+      pinMode(SS, OUTPUT);
+
+      byte csPin = 40; //argv[1] | (argv[2] << 7);
+      byte mode = SPI_MODE3; //argv[3] | (argv[4] << 7);
+      pinMode(csPin, OUTPUT);
+      digitalWrite(csPin, HIGH);
+      SPI.begin();
+      SPI.setDataMode(mode);
+      break;
+    }
+    case SPI_COMM: {
+      byte csPin = 40; //argv[1] | (argv[2] << 7);
+      Serial.write(START_SYSEX);
+      Serial.write(SYSEX_SPI);
+      Serial.write(SPI_COMM);
+      Serial.write(csPin & 0x7F);
+      Serial.write((csPin >> 7) & 0x7F);
+			
+      digitalWrite(csPin, LOW);
+      for (int i = 3; i < argc; i += 2) {
+        byte dataIn = argv[i] | (argv[i+1] << 7);
+        byte dataOut = SPI.transfer(dataIn);
+        Serial.write((byte)(dataOut & 0x7F));
+        Serial.write((byte)((dataOut >> 7) & 0x7F));
+      }
+      digitalWrite(csPin, HIGH);
+			
+      Serial.write(END_SYSEX);
+      break;
+    }
+    }
+		break;
+  }
   case ANALOG_MAPPING_QUERY:
     Serial.write(START_SYSEX);
     Serial.write(ANALOG_MAPPING_RESPONSE);
@@ -706,11 +762,13 @@ void setup() {
 void loop() {
   byte pin, analogPin;
 
-  /* DIGITALREAD - as fast as possible, check for changes and output them to the
+  /* DIGITALREAD - as fast as possible, check for changes and output them to
+   * the
    * FTDI buffer using Serial.print()  */
   checkDigitalInputs();
 
-  /* SERIALREAD - processing incoming messagse as soon as possible, while still
+  /* SERIALREAD - processing incoming messagse as soon as possible, while
+   * still
    * checking digital inputs.  */
   while (Firmata.available())
     Firmata.processInput();
@@ -741,7 +799,8 @@ void loop() {
   currentMillis = millis();
   if (currentMillis - previousMillis > samplingInterval) {
     previousMillis += samplingInterval;
-    /* ANALOGREAD - do all analogReads() at the configured sampling interval */
+    /* ANALOGREAD - do all analogReads() at the configured sampling interval
+     */
     for (pin = 0; pin < TOTAL_PINS; pin++) {
       if (IS_PIN_ANALOG(pin) && pinConfig[pin] == ANALOG) {
         analogPin = PIN_TO_ANALOG(pin);
