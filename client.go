@@ -97,7 +97,7 @@ func NewClient(dev string, baud int) (client *FirmataClient, err error) {
 // Close the serial connection to properly clean up after ourselves
 // Usage: defer client.Close()
 func (c *FirmataClient) Close() {
-  conn.Close()
+  (*c.conn).Close()
 }
 
 // Sets the Pin mode (input, output, etc.) for the Arduino pin
