@@ -1,11 +1,11 @@
 // Copyright 2014 Krishna Raman
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -69,31 +69,33 @@ func (c *FirmataClient) replyReader() {
 	r := bufio.NewReader(*c.conn)
 	c.valueChan = make(chan FirmataValue)
 	var init bool
-
 	for {
 		b, err := (r.ReadByte())
 		if err != nil {
-			c.Log.Critical(err)
+			c.Log.Print(err)
 			return
 		}
-
 		cmd := FirmataCommand(b)
-    c.Log.Trace("Incoming cmd %v", cmd)
+		if c.Verbose {
+			c.Log.Printf("Incoming cmd %v", cmd)
+		}
 		if !init {
 			if cmd != ReportVersion {
-				c.Log.Debug("Discarding unexpected command byte %0d (not initialized)\n", b)
+				if c.Verbose {
+					c.Log.Printf("Discarding unexpected command byte %0d (not initialized)\n", b)
+				}
 				continue
 			} else {
 				init = true
 			}
 		}
-		
+
 		switch {
 		case cmd == ReportVersion:
 			c.protocolVersion = make([]byte, 2)
 			c.protocolVersion[0], err = r.ReadByte()
 			c.protocolVersion[1], err = r.ReadByte()
-			c.Log.Info("Protocol version: %d.%d", c.protocolVersion[0], c.protocolVersion[1])
+			c.Log.Printf("Protocol version: %d.%d", c.protocolVersion[0], c.protocolVersion[1])
 		case cmd == StartSysEx:
 			var sysExData []byte
 			sysExData, err = r.ReadSlice(byte(EndSysEx))
@@ -107,10 +109,12 @@ func (c *FirmataClient) replyReader() {
 			case c.valueChan <- FirmataValue{cmd, int(from7Bit(b1, b2)), c.analogChannelPinsMap}:
 			}
 		default:
-			c.Log.Debug("Discarding unexpected command byte %0d\n", b)
+			if c.Verbose {
+				c.Log.Printf("Discarding unexpected command byte %0d\n", b)
+			}
 		}
 		if err != nil {
-			c.Log.Critical(err)
+			c.Log.Print(err)
 			return
 		}
 	}

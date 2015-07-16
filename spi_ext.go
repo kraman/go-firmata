@@ -1,11 +1,11 @@
 // Copyright 2014 Krishna Raman
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -40,14 +40,14 @@ func (c *FirmataClient) SPIReadWrite(csPin byte, data []byte) (dataOut []byte, e
 	}
 
 	err = c.sendSysEx(SysExSPI, data7Bit...)
-	dataOut = <- c.spiChan
+	dataOut = <-c.spiChan
 	return
 }
 
 func (c *FirmataClient) parseSPIResponse(data7bit []byte) {
-	data := make([]byte,0)
+	data := make([]byte, 0)
 	for i, _ := range data7bit {
-		if i >=3 && i%2 != 0 {
+		if i >= 3 && i%2 != 0 {
 			data = append(data, from7Bit(data7bit[i], data7bit[i+1]))
 		}
 	}
