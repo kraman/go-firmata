@@ -1,11 +1,11 @@
 // Copyright 2014 Krishna Raman
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -71,7 +71,7 @@ const (
 
 	SPIConfig SPISubCommand = 0x10
 	SPIComm   SPISubCommand = 0x20
-	
+
 	SPI_MODE0 = 0x00
 	SPI_MODE1 = 0x04
 	SPI_MODE2 = 0x08
@@ -96,21 +96,21 @@ const (
 func (m PinMode) String() string {
 	switch {
 	case m == Input:
-		return fmt.Sprintf("Input pin (0x%x)", byte(m))
+		return "INPUT"
 	case m == Output:
-		return fmt.Sprintf("Output pin (0x%x)", byte(m))
+		return "OUTPUT"
 	case m == Analog:
-		return fmt.Sprintf("Analog pin (0x%x)", byte(m))
+		return "ANALOG"
 	case m == PWM:
-		return fmt.Sprintf("PWM pin (0x%x)", byte(m))
+		return "PWM"
 	case m == Servo:
-		return fmt.Sprintf("Servo pin (0x%x)", byte(m))
+		return "SERVO"
 	case m == Shift:
-		return fmt.Sprintf("Shift pin (0x%x)", byte(m))
+		return "SHIFT"
 	case m == I2C:
-		return fmt.Sprintf("I2C pin (0x%x)", byte(m))
+		return "I2C"
 	}
-	return fmt.Sprintf("Unknown pin (0x%x)", byte(m))
+	return "UNKNOWN"
 }
 
 func (c FirmataCommand) String() string {
